@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { DEFAULT_SETTINGS } from '../../utils/constants';
 import { themes, type Theme } from '../../utils/themes';
+import { getNotificationPermission, requestNotificationPermission } from '../timer/NotificationManager';
 
 function ThemeCard({ theme, isSelected, onSelect }: { theme: Theme; isSelected: boolean; onSelect: () => void }) {
   return (
@@ -116,6 +117,19 @@ export default function SettingsForm() {
   });
 
   const [saved, setSaved] = useState(false);
+  const [notifPerm, setNotifPerm] = useState(getNotificationPermission);
+
+  // Refresh permission state when user returns to the tab (might have changed in browser settings)
+  useEffect(() => {
+    const refresh = () => setNotifPerm(getNotificationPermission());
+    document.addEventListener('visibilitychange', refresh);
+    return () => document.removeEventListener('visibilitychange', refresh);
+  }, []);
+
+  const handleRequestPermission = useCallback(async () => {
+    await requestNotificationPermission();
+    setNotifPerm(getNotificationPermission());
+  }, []);
 
   const hasChanges =
     draft.work_duration !== settings.work_duration ||
@@ -208,6 +222,17 @@ export default function SettingsForm() {
           <ToggleField label="Sound" checked={draft.sound_enabled} onChange={(v) => handleChange('sound_enabled', v)} />
           <ToggleField label="Browser Notifications" checked={draft.notification_enabled} onChange={(v) => handleChange('notification_enabled', v)} />
         </div>
+        {/* Permission status hint */}
+        {draft.notification_enabled && notifPerm !== 'granted' && notifPerm !== 'unsupported' && (
+          <button
+            onClick={handleRequestPermission}
+            className="mt-2 w-full py-2 rounded-lg text-xs font-medium bg-[var(--color-primary)]/10 text-[var(--color-primary)] hover:bg-[var(--color-primary)]/20 transition-colors cursor-pointer"
+          >
+            {notifPerm === 'denied'
+              ? 'Notifications blocked — please allow in browser settings'
+              : 'Click to allow notifications'}
+          </button>
+        )}
       </SectionCard>
 
       {/* Actions */}

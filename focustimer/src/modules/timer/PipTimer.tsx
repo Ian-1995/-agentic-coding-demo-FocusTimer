@@ -117,7 +117,13 @@ export default function PipTimer() {
 
         if (!tEl || !pEl || !bEl || !togEl) return;
 
-        tEl.textContent = formatTime(state.timeRemaining);
+        // Calculate real remaining time from endTime (immune to background throttling)
+        let remaining = state.timeRemaining;
+        if (state.isRunning && state.endTime) {
+          remaining = Math.max(0, Math.ceil((state.endTime - Date.now()) / 1000));
+        }
+
+        tEl.textContent = formatTime(remaining);
         pEl.textContent = PHASE_LABELS[state.currentPhase];
         pEl.style.color = PHASE_COLORS[state.currentPhase];
         bEl.style.backgroundColor = PHASE_COLORS[state.currentPhase];
@@ -125,7 +131,7 @@ export default function PipTimer() {
         let total = settings.work_duration * 60;
         if (state.currentPhase === 'shortBreak') total = settings.short_break_duration * 60;
         if (state.currentPhase === 'longBreak') total = settings.long_break_duration * 60;
-        const pct = state.currentPhase === 'idle' ? 0 : ((total - state.timeRemaining) / total) * 100;
+        const pct = state.currentPhase === 'idle' ? 0 : ((total - remaining) / total) * 100;
         bEl.style.width = `${pct}%`;
 
         if (state.isRunning) {
@@ -138,7 +144,9 @@ export default function PipTimer() {
       };
 
       update();
-      intervalRef.current = window.setInterval(update, 500);
+      // Use PiP window's own setInterval — it has its own event loop,
+      // not throttled by the parent tab being in background
+      intervalRef.current = pip.setInterval(update, 500);
       setPipWindow(pip);
     } catch (err) {
       console.warn('PiP not available:', err);

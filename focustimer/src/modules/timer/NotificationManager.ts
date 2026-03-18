@@ -29,11 +29,13 @@ export function unlockAudio(): void {
   }
 }
 
-export function playNotificationSound(): void {
+export async function playNotificationSound(): Promise<void> {
   try {
     const ctx = getAudioContext();
+
+    // Must resume — browsers suspend AudioContext in background tabs
     if (ctx.state === 'suspended') {
-      ctx.resume();
+      await ctx.resume();
     }
 
     const now = ctx.currentTime;
@@ -87,6 +89,11 @@ export async function requestNotificationPermission(): Promise<boolean> {
   return result === 'granted';
 }
 
+export function getNotificationPermission(): NotificationPermission | 'unsupported' {
+  if (!('Notification' in window)) return 'unsupported';
+  return Notification.permission;
+}
+
 export function showBrowserNotification(completedPhase: TimerPhase, nextPhase: TimerPhase, pomodoroCount: number): void {
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
 
@@ -100,5 +107,6 @@ export function showBrowserNotification(completedPhase: TimerPhase, nextPhase: T
     body,
     icon: '/vite.svg',
     tag: 'focustimer',
+    requireInteraction: true,
   });
 }

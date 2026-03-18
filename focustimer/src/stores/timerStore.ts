@@ -10,6 +10,10 @@ interface TimerState {
   pomodoroCount: number;
   isRunning: boolean;
   intervalId: number | null;
+  /** Backup setTimeout that fires exactly at endTime (immune to setInterval throttling) */
+  endTimeoutId: number | null;
+  /** Unix ms when the current phase ends (set on start, used to survive background throttling) */
+  endTime: number | null;
 
   start: () => void;
   pause: () => void;
@@ -49,6 +53,8 @@ export const useTimerStore = create<TimerState>()((set, get) => ({
   pomodoroCount: 0,
   isRunning: false,
   intervalId: null,
+  endTimeoutId: null,
+  endTime: null,
 
   start: () => {
     const state = get();
@@ -62,43 +68,58 @@ export const useTimerStore = create<TimerState>()((set, get) => ({
       time = getPhaseDuration('work');
     }
 
+    const endTime = Date.now() + time * 1000;
+
     const id = window.setInterval(() => {
       get().tick();
     }, 1000);
+
+    // Backup: schedule a precise setTimeout at endTime so tick fires on time
+    // even if setInterval is throttled in background tabs
+    const endTid = window.setTimeout(() => {
+      get().tick();
+    }, time * 1000);
 
     set({
       isRunning: true,
       currentPhase: phase,
       timeRemaining: time,
       intervalId: id,
+      endTimeoutId: endTid,
+      endTime,
     });
   },
 
   pause: () => {
-    const { intervalId } = get();
-    if (intervalId !== null) {
-      clearInterval(intervalId);
-    }
-    set({ isRunning: false, intervalId: null });
+    const { intervalId, endTimeoutId, endTime } = get();
+    if (intervalId !== null) clearInterval(intervalId);
+    if (endTimeoutId !== null) clearTimeout(endTimeoutId);
+    // Snapshot the true remaining time so resume is accurate
+    const remaining = endTime ? Math.max(0, Math.ceil((endTime - Date.now()) / 1000)) : get().timeRemaining;
+    set({ isRunning: false, intervalId: null, endTimeoutId: null, endTime: null, timeRemaining: remaining });
   },
 
   reset: () => {
-    const { intervalId } = get();
-    if (intervalId !== null) {
-      clearInterval(intervalId);
-    }
+    const { intervalId, endTimeoutId } = get();
+    if (intervalId !== null) clearInterval(intervalId);
+    if (endTimeoutId !== null) clearTimeout(endTimeoutId);
     set({
       timeRemaining: minutesToSeconds(useSettingsStore.getState().work_duration),
       currentPhase: 'idle',
       pomodoroCount: 0,
       isRunning: false,
       intervalId: null,
+      endTimeoutId: null,
+      endTime: null,
     });
   },
 
   tick: () => {
     const state = get();
-    const newTime = state.timeRemaining - 1;
+    const { endTime } = state;
+
+    // Calculate remaining from wall-clock, immune to setInterval throttling
+    const newTime = endTime ? Math.max(0, Math.ceil((endTime - Date.now()) / 1000)) : state.timeRemaining - 1;
 
     if (newTime > 0) {
       set({ timeRemaining: newTime });
@@ -108,10 +129,9 @@ export const useTimerStore = create<TimerState>()((set, get) => ({
     // Phase completed — show 0:00 first
     set({ timeRemaining: 0 });
 
-    const { intervalId } = state;
-    if (intervalId !== null) {
-      clearInterval(intervalId);
-    }
+    const { intervalId, endTimeoutId } = state;
+    if (intervalId !== null) clearInterval(intervalId);
+    if (endTimeoutId !== null) clearTimeout(endTimeoutId);
 
     let newPomodoroCount = state.pomodoroCount;
 
@@ -141,9 +161,15 @@ export const useTimerStore = create<TimerState>()((set, get) => ({
 
     // Auto-start next phase after a short delay so user sees 0:00
     setTimeout(() => {
+      const nextEndTime = Date.now() + nextDuration * 1000;
+
       const id = window.setInterval(() => {
         get().tick();
       }, 1000);
+
+      const endTid = window.setTimeout(() => {
+        get().tick();
+      }, nextDuration * 1000);
 
       set({
         timeRemaining: nextDuration,
@@ -151,6 +177,8 @@ export const useTimerStore = create<TimerState>()((set, get) => ({
         pomodoroCount: newPomodoroCount,
         isRunning: true,
         intervalId: id,
+        endTimeoutId: endTid,
+        endTime: nextEndTime,
       });
     }, 1500);
   },

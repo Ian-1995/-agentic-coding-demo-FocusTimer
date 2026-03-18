@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useSettingsStore } from '../stores/settingsStore';
+import { useTimerStore } from '../stores/timerStore';
 import {
   playNotificationSound,
   showBrowserNotification,
@@ -41,4 +42,19 @@ export function useNotification(): void {
     window.addEventListener('timer-phase-complete', handlePhaseComplete);
     return () => window.removeEventListener('timer-phase-complete', handlePhaseComplete);
   }, [soundEnabled, notificationEnabled]);
+
+  // When user returns to the tab, force a tick so any missed phase-complete fires immediately
+  useEffect(() => {
+    function handleVisibilityChange() {
+      if (document.visibilityState === 'visible') {
+        const state = useTimerStore.getState();
+        if (state.isRunning) {
+          state.tick();
+        }
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, []);
 }
