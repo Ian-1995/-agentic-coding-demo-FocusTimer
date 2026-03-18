@@ -1,0 +1,88 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                String    @id @default(uuid())
+  email             String    @unique
+  password_hash     String
+  display_name      String?
+  failed_login_count Int      @default(0)
+  locked_until      DateTime?
+  created_at        DateTime  @default(now())
+  updated_at        DateTime  @updatedAt
+  deleted_at        DateTime?
+
+  tasks          Task[]
+  sessions       Session[]
+  settings       Settings?
+  refresh_tokens RefreshToken[]
+
+  @@map("users")
+}
+
+model Task {
+  id          String    @id @default(uuid())
+  user_id     String
+  name        String
+  is_archived Boolean   @default(false)
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @updatedAt
+  deleted_at  DateTime?
+
+  user     User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  sessions Session[]
+
+  @@index([user_id])
+  @@map("tasks")
+}
+
+model Session {
+  id               String   @id @default(uuid())
+  user_id          String
+  task_id          String?
+  duration_minutes Int
+  completed_at     DateTime
+  created_at       DateTime @default(now())
+
+  user User  @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  task Task? @relation(fields: [task_id], references: [id], onDelete: SetNull)
+
+  @@index([user_id])
+  @@index([user_id, completed_at])
+  @@map("sessions")
+}
+
+model Settings {
+  id                   String  @id @default(uuid())
+  user_id              String  @unique
+  work_duration        Int     @default(25)
+  short_break_duration Int     @default(5)
+  long_break_duration  Int     @default(15)
+  long_break_interval  Int     @default(4)
+  sound_enabled        Boolean @default(true)
+  notification_enabled Boolean @default(true)
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("settings")
+}
+
+model RefreshToken {
+  id         String   @id @default(uuid())
+  user_id    String
+  token_hash String
+  expires_at DateTime
+  created_at DateTime @default(now())
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@index([token_hash])
+  @@map("refresh_tokens")
+}
