@@ -5,6 +5,7 @@ export const DEFAULT_SETTINGS = {
   long_break_interval: 4,
   sound_enabled: true,
   notification_enabled: true,
+  theme: 'default-dark',
 } as const;
 
 export type TimerPhase = 'idle' | 'work' | 'shortBreak' | 'longBreak';

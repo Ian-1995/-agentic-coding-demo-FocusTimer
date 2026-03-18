@@ -6,8 +6,11 @@ export interface AuthRequest extends Request {
   userId?: string;
 }
 
-const JWT_SECRET = process.env.JWT_SECRET;
-if (!JWT_SECRET) throw new Error('JWT_SECRET environment variable is required');
+if (!process.env.JWT_SECRET) throw new Error('JWT_SECRET environment variable is required');
+if (!process.env.JWT_REFRESH_SECRET) throw new Error('JWT_REFRESH_SECRET environment variable is required');
+
+const JWT_SECRET: string = process.env.JWT_SECRET;
+const JWT_REFRESH_SECRET: string = process.env.JWT_REFRESH_SECRET;
 
 export function verifyToken(req: AuthRequest, _res: Response, next: NextFunction) {
   const authHeader = req.headers.authorization;
@@ -17,7 +20,7 @@ export function verifyToken(req: AuthRequest, _res: Response, next: NextFunction
 
   const token = authHeader.split(' ')[1];
   try {
-    const payload = jwt.verify(token, JWT_SECRET) as { userId: string };
+    const payload = jwt.verify(token, JWT_SECRET) as unknown as { userId: string };
     req.userId = payload.userId;
     next();
   } catch {
@@ -30,13 +33,9 @@ export function generateAccessToken(userId: string): string {
 }
 
 export function generateRefreshToken(userId: string): string {
-  const secret = process.env.JWT_REFRESH_SECRET;
-  if (!secret) throw new Error('JWT_REFRESH_SECRET environment variable is required');
-  return jwt.sign({ userId }, secret, { expiresIn: '7d' });
+  return jwt.sign({ userId }, JWT_REFRESH_SECRET, { expiresIn: '7d' });
 }
 
 export function verifyRefreshToken(token: string): { userId: string } {
-  const secret = process.env.JWT_REFRESH_SECRET;
-  if (!secret) throw new Error('JWT_REFRESH_SECRET environment variable is required');
-  return jwt.verify(token, secret) as { userId: string };
+  return jwt.verify(token, JWT_REFRESH_SECRET) as unknown as { userId: string };
 }

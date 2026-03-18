@@ -1,13 +1,14 @@
 import TimerDisplay from './TimerDisplay';
 import TimerControls from './TimerControls';
-import TaskSelector from './TaskSelector';
+import PipTimer from './PipTimer';
 
 export default function TimerPage() {
   return (
-    <div className="flex flex-col items-center gap-8 pt-8">
+    <div className="flex flex-col items-center gap-6 pt-4">
       <TimerDisplay />
       <TimerControls />
-      <TaskSelector />
+      {/* Float button — subtle, below main controls */}
+      <PipTimer />
     </div>
   );
 }

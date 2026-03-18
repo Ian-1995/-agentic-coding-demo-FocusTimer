@@ -3,21 +3,18 @@ import { type TimerPhase } from '../utils/constants';
 import { minutesToSeconds } from '../utils/time';
 import { useSettingsStore } from './settingsStore';
 import { addSession } from '../services/localStorage';
-import api from '../services/api';
 
 interface TimerState {
   timeRemaining: number;
   currentPhase: TimerPhase;
   pomodoroCount: number;
   isRunning: boolean;
-  selectedTaskId: string | null;
   intervalId: number | null;
 
   start: () => void;
   pause: () => void;
   reset: () => void;
   tick: () => void;
-  setSelectedTaskId: (id: string | null) => void;
 }
 
 function getPhaseDuration(phase: TimerPhase): number {
@@ -51,7 +48,6 @@ export const useTimerStore = create<TimerState>()((set, get) => ({
   currentPhase: 'idle' as TimerPhase,
   pomodoroCount: 0,
   isRunning: false,
-  selectedTaskId: null,
   intervalId: null,
 
   start: () => {
@@ -104,46 +100,47 @@ export const useTimerStore = create<TimerState>()((set, get) => ({
     const state = get();
     const newTime = state.timeRemaining - 1;
 
-    if (newTime <= 0) {
-      // Phase completed
-      const { intervalId } = state;
-      if (intervalId !== null) {
-        clearInterval(intervalId);
-      }
+    if (newTime > 0) {
+      set({ timeRemaining: newTime });
+      return;
+    }
 
-      let newPomodoroCount = state.pomodoroCount;
+    // Phase completed — show 0:00 first
+    set({ timeRemaining: 0 });
 
-      if (state.currentPhase === 'work') {
-        newPomodoroCount += 1;
+    const { intervalId } = state;
+    if (intervalId !== null) {
+      clearInterval(intervalId);
+    }
+
+    let newPomodoroCount = state.pomodoroCount;
+
+    if (state.currentPhase === 'work') {
+      newPomodoroCount += 1;
+      try {
         const settings = useSettingsStore.getState();
-        const completedAt = new Date().toISOString();
-        addSession(settings.work_duration, state.selectedTaskId);
-
-        // Also save to server if user has an access token
-        if (localStorage.getItem('access_token')) {
-          api.post('/sessions', {
-            task_id: state.selectedTaskId,
-            duration_minutes: settings.work_duration,
-            completed_at: completedAt,
-          }).catch(() => { /* will sync later */ });
-        }
+        addSession(settings.work_duration);
+      } catch {
+        // Don't let session saving break the timer
       }
+    }
 
-      const nextPhase = getNextPhase(state.currentPhase, newPomodoroCount);
-      const nextDuration = getPhaseDuration(nextPhase);
+    const nextPhase = getNextPhase(state.currentPhase, newPomodoroCount);
+    const nextDuration = getPhaseDuration(nextPhase);
 
-      // Dispatch custom event for notification
-      window.dispatchEvent(
-        new CustomEvent('timer-phase-complete', {
-          detail: {
-            completedPhase: state.currentPhase,
-            nextPhase,
-            pomodoroCount: newPomodoroCount,
-          },
-        })
-      );
+    // Dispatch custom event for notification
+    window.dispatchEvent(
+      new CustomEvent('timer-phase-complete', {
+        detail: {
+          completedPhase: state.currentPhase,
+          nextPhase,
+          pomodoroCount: newPomodoroCount,
+        },
+      })
+    );
 
-      // Auto-start next phase
+    // Auto-start next phase after a short delay so user sees 0:00
+    setTimeout(() => {
       const id = window.setInterval(() => {
         get().tick();
       }, 1000);
@@ -155,10 +152,6 @@ export const useTimerStore = create<TimerState>()((set, get) => ({
         isRunning: true,
         intervalId: id,
       });
-    } else {
-      set({ timeRemaining: newTime });
-    }
+    }, 1500);
   },
-
-  setSelectedTaskId: (id) => set({ selectedTaskId: id }),
 }));

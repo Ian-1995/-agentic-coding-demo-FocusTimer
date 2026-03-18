@@ -13,65 +13,90 @@ function getPhaseTotal(phase: TimerPhase, settings: { work_duration: number; sho
 }
 
 export default function TimerDisplay() {
-  const { timeRemaining, currentPhase, pomodoroCount } = useTimerStore();
+  const { timeRemaining, currentPhase, pomodoroCount, isRunning } = useTimerStore();
   const settings = useSettingsStore();
 
-  const total = getPhaseTotal(currentPhase === 'idle' ? 'work' : currentPhase, settings);
+  const activePhase = currentPhase === 'idle' ? 'work' : currentPhase;
+  const total = getPhaseTotal(activePhase, settings);
   const progress = currentPhase === 'idle' ? 0 : ((total - timeRemaining) / total) * 100;
 
-  const radius = 120;
+  const radius = 110;
+  const strokeWidth = 5;
+  const viewBox = (radius + strokeWidth) * 2;
+  const center = viewBox / 2;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (progress / 100) * circumference;
   const color = PHASE_COLORS[currentPhase];
 
-  return (
-    <div className="flex flex-col items-center gap-6">
-      {/* Phase label */}
-      <div
-        className="text-lg font-medium tracking-wide uppercase"
-        style={{ color }}
-      >
-        {PHASE_LABELS[currentPhase]}
-      </div>
+  // Pomodoro dots (show up to long_break_interval)
+  const interval = settings.long_break_interval;
+  const completedInCycle = pomodoroCount % interval;
 
+  return (
+    <div className="flex flex-col items-center">
       {/* Circular timer */}
-      <div className="relative w-72 h-72 flex items-center justify-center">
-        <svg className="absolute w-full h-full -rotate-90" viewBox="0 0 280 280">
-          {/* Background circle */}
+      <div className="relative flex items-center justify-center" style={{ width: viewBox, height: viewBox }}>
+        <svg className="absolute w-full h-full -rotate-90" viewBox={`0 0 ${viewBox} ${viewBox}`}>
+          {/* Background track */}
           <circle
-            cx="140"
-            cy="140"
+            cx={center}
+            cy={center}
             r={radius}
             fill="none"
             stroke="var(--color-surface)"
-            strokeWidth="8"
+            strokeWidth={strokeWidth}
           />
-          {/* Progress circle */}
+          {/* Progress arc */}
           <circle
-            cx="140"
-            cy="140"
+            cx={center}
+            cy={center}
             r={radius}
             fill="none"
             stroke={color}
-            strokeWidth="8"
+            strokeWidth={strokeWidth}
             strokeLinecap="round"
             strokeDasharray={circumference}
             strokeDashoffset={strokeDashoffset}
             className="transition-all duration-1000 ease-linear"
+            style={{ filter: isRunning ? `drop-shadow(0 0 8px ${color}40)` : 'none' }}
           />
         </svg>
-        {/* Time display */}
-        <div className="text-6xl font-mono font-bold tabular-nums">
-          {formatTime(timeRemaining)}
+
+        {/* Center content */}
+        <div className="flex flex-col items-center gap-1">
+          {/* Phase label */}
+          <span
+            className="text-xs font-semibold uppercase tracking-[0.2em]"
+            style={{ color }}
+          >
+            {PHASE_LABELS[currentPhase]}
+          </span>
+
+          {/* Time */}
+          <div className="text-5xl font-mono font-bold tabular-nums tracking-tight leading-none">
+            {formatTime(timeRemaining)}
+          </div>
+
+          {/* Pomodoro cycle dots */}
+          <div className="flex items-center gap-1.5 mt-3">
+            {Array.from({ length: interval }).map((_, i) => (
+              <div
+                key={i}
+                className="w-2.5 h-2.5 rounded-full transition-all duration-300"
+                style={{
+                  backgroundColor: i < completedInCycle ? PHASE_COLORS.work : 'var(--color-surface-hover)',
+                  transform: i < completedInCycle ? 'scale(1.1)' : 'scale(1)',
+                  boxShadow: i < completedInCycle ? `0 0 6px ${PHASE_COLORS.work}60` : 'none',
+                }}
+              />
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* Pomodoro count */}
-      <div className="flex items-center gap-2 text-[var(--color-text-muted)]">
-        <span className="text-sm">Pomodoros completed:</span>
-        <span className="text-xl font-bold" style={{ color: PHASE_COLORS.work }}>
-          {pomodoroCount}
-        </span>
+      {/* Session count */}
+      <div className="mt-2 text-sm text-[var(--color-text-muted)]">
+        {pomodoroCount > 0 ? `${pomodoroCount} session${pomodoroCount > 1 ? 's' : ''} completed` : 'Ready to focus'}
       </div>
     </div>
   );

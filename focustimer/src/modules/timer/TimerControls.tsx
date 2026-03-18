@@ -10,29 +10,34 @@ export default function TimerControls() {
   };
 
   return (
-    <div className="flex items-center gap-4">
+    <div className="flex items-center gap-3">
+      {/* Main action button */}
       {!isRunning ? (
         <button
           onClick={handleStart}
-          className="px-8 py-3 rounded-full text-lg font-semibold bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white transition-colors cursor-pointer"
+          className="w-16 h-16 rounded-full flex items-center justify-center text-white text-2xl font-semibold bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] shadow-lg hover:shadow-xl transition-all active:scale-95 cursor-pointer"
+          style={{ boxShadow: `0 4px 20px var(--color-primary)40` }}
         >
-          {currentPhase === 'idle' ? 'Start' : 'Resume'}
+          ▶
         </button>
       ) : (
         <button
           onClick={pause}
-          className="px-8 py-3 rounded-full text-lg font-semibold bg-[var(--color-warning)] hover:opacity-90 text-white transition-colors cursor-pointer"
+          className="w-16 h-16 rounded-full flex items-center justify-center text-white text-xl font-bold bg-[var(--color-warning)] shadow-lg hover:shadow-xl transition-all active:scale-95 cursor-pointer"
         >
-          Pause
+          ❚❚
         </button>
       )}
 
-      <button
-        onClick={reset}
-        className="px-6 py-3 rounded-full text-lg font-semibold bg-[var(--color-surface)] hover:bg-[var(--color-surface-hover)] text-[var(--color-text-muted)] transition-colors cursor-pointer"
-      >
-        Reset
-      </button>
+      {/* Reset - only show when not idle */}
+      {currentPhase !== 'idle' && (
+        <button
+          onClick={reset}
+          className="w-11 h-11 rounded-full flex items-center justify-center text-[var(--color-text-muted)] hover:text-[var(--color-text)] bg-[var(--color-surface)] hover:bg-[var(--color-surface-hover)] transition-all active:scale-95 cursor-pointer text-sm"
+        >
+          ↺
+        </button>
+      )}
     </div>
   );
 }

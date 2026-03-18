@@ -1,88 +1,56 @@
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { useAuthStore } from '../stores/authStore';
+import { NavLink, Outlet } from 'react-router-dom';
+
+const NAV_ITEMS = [
+  { to: '/', label: 'Timer', icon: '⏱' },
+  { to: '/settings', label: 'Settings', icon: '⚙' },
+];
 
 export default function Layout() {
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  const user = useAuthStore((s) => s.user);
-  const logout = useAuthStore((s) => s.logout);
-  const navigate = useNavigate();
-
-  const navItems = [
-    { to: '/', label: 'Timer' },
-    ...(isAuthenticated
-      ? [
-          { to: '/tasks', label: 'Tasks' },
-          { to: '/stats', label: 'Stats' },
-        ]
-      : []),
-    { to: '/settings', label: 'Settings' },
-  ];
-
-  const handleLogout = async () => {
-    await logout();
-    navigate('/');
-  };
-
   return (
-    <div className="flex flex-col min-h-screen">
-      {/* Header */}
-      <header className="border-b border-[var(--color-border)] bg-[var(--color-surface)]">
-        <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
-          <h1 className="text-xl font-bold text-[var(--color-primary)]">
-            FocusTimer
-          </h1>
-          <div className="flex items-center gap-4">
-            <nav className="flex gap-2">
-              {navItems.map((item) => (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  end={item.to === '/'}
-                  className={({ isActive }) =>
-                    `px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
-                      isActive
-                        ? 'bg-[var(--color-primary)] text-white'
-                        : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)]'
-                    }`
-                  }
-                >
-                  {item.label}
-                </NavLink>
-              ))}
-            </nav>
-            {isAuthenticated ? (
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-[var(--color-text-muted)]">
-                  {user?.display_name || user?.email}
-                </span>
-                <button
-                  onClick={handleLogout}
-                  className="text-xs px-2 py-1 rounded bg-[var(--color-bg)] text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors"
-                >
-                  Logout
-                </button>
-              </div>
-            ) : (
-              <NavLink
-                to="/login"
-                className="text-sm text-[var(--color-primary)] hover:underline"
-              >
-                Login
-              </NavLink>
-            )}
+    /* Desktop: center a phone-sized frame; Mobile: fill screen naturally */
+    <div className="min-h-screen flex items-center justify-center bg-[var(--color-bg)] p-0 md:p-6">
+      <div className="relative w-full md:w-[420px] md:h-[780px] md:rounded-3xl md:border md:border-[var(--color-border)] md:shadow-2xl md:overflow-hidden flex flex-col bg-[var(--color-bg)] min-h-screen md:min-h-0">
+
+        {/* Header */}
+        <header className="sticky top-0 z-50 border-b border-[var(--color-border)] bg-[var(--color-surface)]/80 backdrop-blur-md shrink-0">
+          <div className="px-4 h-14 flex items-center">
+            <NavLink to="/" className="flex items-center gap-2 group">
+              <span className="text-2xl">🍅</span>
+              <span className="text-lg font-bold tracking-tight text-[var(--color-text)] group-hover:text-[var(--color-primary)] transition-colors">
+                FocusTimer
+              </span>
+            </NavLink>
           </div>
-        </div>
-      </header>
+        </header>
 
-      {/* Main content */}
-      <main className="flex-1 max-w-2xl mx-auto w-full px-4 py-8">
-        <Outlet />
-      </main>
+        {/* Main content — scrollable area */}
+        <main className="flex-1 overflow-y-auto px-4 py-6 pb-20">
+          <Outlet />
+        </main>
 
-      {/* Footer */}
-      <footer className="border-t border-[var(--color-border)] py-4 text-center text-xs text-[var(--color-text-muted)]">
-        FocusTimer v2.0 — Phase 2
-      </footer>
+        {/* Bottom tab bar — centered pill style for 2 tabs */}
+        <nav className="shrink-0 border-t border-[var(--color-border)] bg-[var(--color-surface)]/90 backdrop-blur-md">
+          <div className="flex justify-center gap-2 py-2 px-4">
+            {NAV_ITEMS.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.to === '/'}
+                className={({ isActive }) =>
+                  `flex items-center gap-1.5 px-6 py-2 rounded-full text-xs font-semibold transition-all ${
+                    isActive
+                      ? 'bg-[var(--color-primary)]/15 text-[var(--color-primary)]'
+                      : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface-hover)]'
+                  }`
+                }
+              >
+                <span className="text-base leading-none">{item.icon}</span>
+                <span>{item.label}</span>
+              </NavLink>
+            ))}
+          </div>
+        </nav>
+      </div>
     </div>
   );
 }
