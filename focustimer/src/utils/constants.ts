@@ -27,4 +27,5 @@ export const PHASE_COLORS: Record<TimerPhase, string> = {
 export const STORAGE_KEYS = {
   sessions: 'focustimer_sessions',
   settings: 'focustimer_settings',
+  onboarding: 'focustimer_onboarding_done',
 } as const;

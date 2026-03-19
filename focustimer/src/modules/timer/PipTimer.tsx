@@ -2,8 +2,15 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useTimerStore } from '../../stores/timerStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { formatTime } from '../../utils/time';
-import { PHASE_LABELS, PHASE_COLORS } from '../../utils/constants';
+import { PHASE_LABELS, PHASE_COLORS, type TimerPhase } from '../../utils/constants';
 import { getThemeById } from '../../utils/themes';
+
+const PHASE_ICONS: Record<TimerPhase, string> = {
+  idle: '🍅',
+  work: '🔥',
+  shortBreak: '☕',
+  longBreak: '🌴',
+};
 
 function isPipSupported(): boolean {
   return 'documentPictureInPicture' in window;
@@ -70,7 +77,8 @@ export default function PipTimer() {
       doc.head.appendChild(style);
 
       doc.body.innerHTML = `
-        <div class="container">
+        <div class="container" id="c">
+          <div class="icon" id="ico">🍅</div>
           <div class="time" id="t">--:--</div>
           <div class="right">
             <div class="phase" id="p">Ready</div>
@@ -80,6 +88,7 @@ export default function PipTimer() {
             <button class="btn toggle" id="tog">▶</button>
             <button class="btn rst" id="res">↺</button>
           </div>
+          <div class="flash-overlay" id="flash"></div>
         </div>
       `;
 
@@ -93,6 +102,14 @@ export default function PipTimer() {
       });
 
       let prevThemeId = themeId;
+      let prevPhase: TimerPhase = useTimerStore.getState().currentPhase;
+      let flashTimeout: number | null = null;
+
+      // Set initial left border color
+      const containerEl = doc.getElementById('c');
+      if (containerEl) {
+        containerEl.style.borderLeftColor = PHASE_COLORS[prevPhase];
+      }
 
       const update = () => {
         if (pip.closed) return;
@@ -110,12 +127,40 @@ export default function PipTimer() {
           }
         }
 
+        const cEl = doc.getElementById('c');
+        const icoEl = doc.getElementById('ico');
         const tEl = doc.getElementById('t');
         const pEl = doc.getElementById('p');
         const bEl = doc.getElementById('b');
         const togEl = doc.getElementById('tog') as HTMLButtonElement | null;
+        const flashEl = doc.getElementById('flash');
 
-        if (!tEl || !pEl || !bEl || !togEl) return;
+        if (!cEl || !icoEl || !tEl || !pEl || !bEl || !togEl || !flashEl) return;
+
+        // Detect phase change and trigger flash animation
+        if (state.currentPhase !== prevPhase) {
+          prevPhase = state.currentPhase;
+          const phaseColor = PHASE_COLORS[state.currentPhase];
+
+          // Update left border color
+          cEl.style.borderLeftColor = phaseColor;
+
+          // Update icon
+          icoEl.textContent = PHASE_ICONS[state.currentPhase];
+
+          // Update flash overlay color and trigger animation
+          flashEl.style.backgroundColor = phaseColor;
+          cEl.classList.remove('flash');
+          // Force reflow to restart animation
+          void cEl.offsetWidth;
+          cEl.classList.add('flash');
+
+          if (flashTimeout) pip.clearTimeout(flashTimeout);
+          flashTimeout = pip.setTimeout(() => {
+            cEl.classList.remove('flash');
+            flashTimeout = null;
+          }, 1000);
+        }
 
         // Calculate real remaining time from endTime (immune to background throttling)
         let remaining = state.timeRemaining;
@@ -189,10 +234,47 @@ function buildPipStyles(c: { bg: string; surface: string; surfaceHover: string; 
       overflow: hidden;
     }
     .container {
+      position: relative;
       display: flex;
       align-items: center;
       gap: 14px;
       width: 100%;
+      border-left: 3px solid #94a3b8;
+      padding-left: 11px;
+      overflow: hidden;
+    }
+    .icon {
+      font-size: 20px;
+      flex-shrink: 0;
+      line-height: 1;
+    }
+    .flash-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      pointer-events: none;
+      opacity: 0;
+      border-radius: 4px;
+    }
+    @keyframes flash {
+      0% { opacity: 0; }
+      20% { opacity: 0.3; }
+      40% { opacity: 0; }
+      70% { opacity: 0.3; }
+      100% { opacity: 0; }
+    }
+    @keyframes heartbeat {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.2); }
+      100% { transform: scale(1); }
+    }
+    .container.flash .flash-overlay {
+      animation: flash 1s ease;
+    }
+    .container.flash .time {
+      animation: heartbeat 0.6s ease;
     }
     .time {
       font-size: 32px;

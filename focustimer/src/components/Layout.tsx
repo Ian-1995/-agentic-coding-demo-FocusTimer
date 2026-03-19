@@ -1,4 +1,7 @@
+import { useState, useCallback } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
+import OnboardingOverlay from './OnboardingOverlay';
+import HelpButton from './HelpButton';
 
 const NAV_ITEMS = [
   { to: '/', label: 'Timer', icon: '⏱' },
@@ -6,6 +9,11 @@ const NAV_ITEMS = [
 ];
 
 export default function Layout() {
+  const [onboardingKey, setOnboardingKey] = useState(0);
+  const handleResetOnboarding = useCallback(() => {
+    setOnboardingKey((k) => k + 1);
+  }, []);
+
   return (
     /* Desktop: center a phone-sized frame; Mobile: fill screen naturally */
     <div className="min-h-screen flex items-center justify-center bg-[var(--color-bg)] p-0 md:p-6">
@@ -13,13 +21,14 @@ export default function Layout() {
 
         {/* Header */}
         <header className="sticky top-0 z-50 border-b border-[var(--color-border)] bg-[var(--color-surface)]/80 backdrop-blur-md shrink-0">
-          <div className="px-4 h-14 flex items-center">
+          <div className="px-4 h-14 flex items-center justify-between">
             <NavLink to="/" className="flex items-center gap-2 group">
               <span className="text-2xl">🍅</span>
               <span className="text-lg font-bold tracking-tight text-[var(--color-text)] group-hover:text-[var(--color-primary)] transition-colors">
                 FocusTimer
               </span>
             </NavLink>
+            <HelpButton onResetOnboarding={handleResetOnboarding} />
           </div>
         </header>
 
@@ -50,6 +59,8 @@ export default function Layout() {
             ))}
           </div>
         </nav>
+        {/* Onboarding overlay */}
+        <OnboardingOverlay key={onboardingKey} />
       </div>
     </div>
   );
