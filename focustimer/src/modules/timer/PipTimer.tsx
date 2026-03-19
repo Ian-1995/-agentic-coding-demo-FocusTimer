@@ -111,10 +111,14 @@ export default function PipTimer() {
       let prevPhase: TimerPhase = useTimerStore.getState().currentPhase;
       let flashTimeout: number | null = null;
 
-      // Set initial left border color
+      // Set initial icon and left border color based on current phase
       const containerEl = doc.getElementById('c');
+      const initIcoEl = doc.getElementById('ico');
       if (containerEl) {
         containerEl.style.borderLeftColor = PHASE_COLORS[prevPhase];
+      }
+      if (initIcoEl) {
+        initIcoEl.textContent = PHASE_ICONS[prevPhase];
       }
 
       const update = () => {
