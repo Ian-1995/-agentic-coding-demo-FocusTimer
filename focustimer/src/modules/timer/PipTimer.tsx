@@ -112,6 +112,8 @@ export default function PipTimer() {
       let prevThemeId = themeId;
       let prevPhase: TimerPhase = useTimerStore.getState().currentPhase;
       let flashTimeout: number | null = null;
+      let lastQuoteTime = Date.now();
+      const QUOTE_ROTATE_MS = 3 * 60 * 1000; // 3 minutes
 
       // Set initial icon and left border color based on current phase
       const containerEl = doc.getElementById('c');
@@ -127,20 +129,34 @@ export default function PipTimer() {
         initQuoteEl.textContent = '「' + getQuoteForPhase(prevPhase) + '」';
       }
 
+      /** Fade-swap the quote text */
+      const rotateQuote = (phase: TimerPhase) => {
+        const qEl = doc.getElementById('q');
+        if (!qEl) return;
+        qEl.style.opacity = '0';
+        pip.setTimeout(() => {
+          qEl.textContent = '「' + getQuoteForPhase(phase) + '」';
+          qEl.style.opacity = '1';
+        }, 300);
+        lastQuoteTime = Date.now();
+      };
+
       const update = () => {
         if (pip.closed) return;
 
         const state = useTimerStore.getState();
         const settings = useSettingsStore.getState();
 
-        // Sync theme if changed
+        // Sync theme if changed — replace style element to force repaint
         if (settings.theme !== prevThemeId) {
           prevThemeId = settings.theme;
           const newTheme = getThemeById(settings.theme);
-          const styleEl = doc.getElementById('pip-theme');
-          if (styleEl) {
-            styleEl.textContent = buildPipStyles(newTheme.colors);
-          }
+          const oldStyle = doc.getElementById('pip-theme');
+          if (oldStyle) oldStyle.remove();
+          const newStyle = doc.createElement('style');
+          newStyle.id = 'pip-theme';
+          newStyle.textContent = buildPipStyles(newTheme.colors);
+          doc.head.appendChild(newStyle);
         }
 
         const cEl = doc.getElementById('c');
@@ -164,15 +180,8 @@ export default function PipTimer() {
           // Update icon
           icoEl.textContent = PHASE_ICONS[state.currentPhase];
 
-          // Update quote
-          const qEl = doc.getElementById('q');
-          if (qEl) {
-            qEl.style.opacity = '0';
-            pip.setTimeout(() => {
-              qEl.textContent = '「' + getQuoteForPhase(state.currentPhase) + '」';
-              qEl.style.opacity = '1';
-            }, 300);
-          }
+          // Update quote on phase change
+          rotateQuote(state.currentPhase);
 
           // Update flash overlay color and trigger animation
           flashEl.style.backgroundColor = phaseColor;
@@ -186,6 +195,11 @@ export default function PipTimer() {
             cEl.classList.remove('flash');
             flashTimeout = null;
           }, 1000);
+        }
+
+        // Auto-rotate quote every 3 minutes
+        if (Date.now() - lastQuoteTime >= QUOTE_ROTATE_MS) {
+          rotateQuote(state.currentPhase);
         }
 
         // Calculate real remaining time from endTime (immune to background throttling)
