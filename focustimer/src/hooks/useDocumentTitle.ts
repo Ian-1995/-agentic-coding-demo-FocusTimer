@@ -1,11 +1,18 @@
 import { useEffect } from 'react';
 import { useTimerStore } from '../stores/timerStore';
 import { formatTime } from '../utils/time';
-import { PHASE_LABELS } from '../utils/constants';
+import { PHASE_LABELS, type TimerPhase } from '../utils/constants';
+
+const PHASE_ICONS: Record<TimerPhase, string> = {
+  idle: '🍅',
+  work: '🧑‍💻',
+  shortBreak: '🐨',
+  longBreak: '🦦',
+};
 
 /**
  * Updates the browser tab title with the current timer state.
- * Shows "25:00 Focus - FocusTimer" when running, "FocusTimer" when idle.
+ * Shows "🧑‍💻 25:00 Focus ▶ FocusTimer" when running, "FocusTimer" when idle.
  */
 export function useDocumentTitle() {
   const timeRemaining = useTimerStore((s) => s.timeRemaining);
@@ -18,7 +25,8 @@ export function useDocumentTitle() {
     } else {
       const time = formatTime(timeRemaining);
       const phase = PHASE_LABELS[currentPhase];
-      document.title = `${time} ${phase} ${isRunning ? '▶' : '⏸'} FocusTimer`;
+      const icon = PHASE_ICONS[currentPhase];
+      document.title = `${icon} ${time} ${phase} ${isRunning ? '▶' : '⏸'} FocusTimer`;
     }
 
     return () => {

@@ -8,9 +8,9 @@ import { getQuoteForPhase } from '../../utils/quotes';
 
 const PHASE_ICONS: Record<TimerPhase, string> = {
   idle: '🍅',
-  work: '🔥',
-  shortBreak: '☕',
-  longBreak: '🌴',
+  work: '🧑‍💻',
+  shortBreak: '🐨',
+  longBreak: '🦦',
 };
 
 function isPipSupported(): boolean {

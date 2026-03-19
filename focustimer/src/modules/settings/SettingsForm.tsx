@@ -63,6 +63,13 @@ function NumberField({ label, value, onChange, min, max, suffix }: {
   label: string; value: number; onChange: (v: number) => void;
   min: number; max: number; suffix?: string;
 }) {
+  const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value.replace(/\D/g, '');
+    if (raw === '') return;
+    const num = Math.min(max, Math.max(min, parseInt(raw, 10)));
+    onChange(num);
+  };
+
   return (
     <div className="flex items-center justify-between py-2.5">
       <span className="text-sm">{label}</span>
@@ -73,7 +80,14 @@ function NumberField({ label, value, onChange, min, max, suffix }: {
         >
           −
         </button>
-        <span className="w-10 text-center font-mono font-semibold tabular-nums">{value}</span>
+        <input
+          type="text"
+          inputMode="numeric"
+          value={value}
+          onChange={handleInput}
+          onFocus={(e) => e.target.select()}
+          className="w-10 text-center font-mono font-semibold tabular-nums bg-transparent border-b border-[var(--color-border)] focus:border-[var(--color-primary)] outline-none transition-colors text-[var(--color-text)]"
+        />
         <button
           onClick={() => onChange(Math.min(max, value + 1))}
           className="w-8 h-8 rounded-lg bg-[var(--color-bg)] text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface-hover)] flex items-center justify-center transition-all cursor-pointer active:scale-90 text-lg leading-none"

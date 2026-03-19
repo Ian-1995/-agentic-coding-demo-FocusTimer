@@ -3,6 +3,13 @@ import { useSettingsStore } from '../../stores/settingsStore';
 import { formatTime, minutesToSeconds } from '../../utils/time';
 import { PHASE_LABELS, PHASE_COLORS, type TimerPhase } from '../../utils/constants';
 
+const PHASE_ICONS: Record<TimerPhase, string> = {
+  idle: '🍅',
+  work: '🧑‍💻',
+  shortBreak: '🐨',
+  longBreak: '🦦',
+};
+
 function getPhaseTotal(phase: TimerPhase, settings: { work_duration: number; short_break_duration: number; long_break_duration: number }): number {
   switch (phase) {
     case 'work': return minutesToSeconds(settings.work_duration);
@@ -64,11 +71,12 @@ export default function TimerDisplay() {
 
         {/* Center content */}
         <div className="flex flex-col items-center gap-1">
-          {/* Phase label */}
+          {/* Phase icon + label */}
           <span
-            className="text-xs font-semibold uppercase tracking-[0.2em]"
+            className="text-xs font-semibold uppercase tracking-[0.2em] flex items-center gap-1.5"
             style={{ color }}
           >
+            <span className="text-base">{PHASE_ICONS[currentPhase]}</span>
             {PHASE_LABELS[currentPhase]}
           </span>
 
