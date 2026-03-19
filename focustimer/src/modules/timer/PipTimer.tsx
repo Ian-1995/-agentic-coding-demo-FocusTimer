@@ -19,32 +19,38 @@ function isPipSupported(): boolean {
 export default function PipTimer() {
   const [pipWindow, setPipWindow] = useState<Window | null>(null);
   const intervalRef = useRef<number | null>(null);
+  // Keep a ref to the pip window so cleanup can use pip.clearInterval
+  const pipRef = useRef<Window | null>(null);
+
+  const clearPipInterval = useCallback(() => {
+    if (intervalRef.current !== null) {
+      // Must use the same window context that created the interval
+      const w = pipRef.current && !pipRef.current.closed ? pipRef.current : window;
+      w.clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+  }, []);
 
   const closePip = useCallback(() => {
+    clearPipInterval();
     if (pipWindow && !pipWindow.closed) {
       pipWindow.close();
     }
     setPipWindow(null);
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-  }, [pipWindow]);
+    pipRef.current = null;
+  }, [pipWindow, clearPipInterval]);
 
   useEffect(() => {
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, []);
+    return () => { clearPipInterval(); };
+  }, [clearPipInterval]);
 
   useEffect(() => {
     if (!pipWindow) return;
     const handleClose = () => {
+      // PiP window is closing — intervals auto-cleared by browser
+      intervalRef.current = null;
+      pipRef.current = null;
       setPipWindow(null);
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
     };
     pipWindow.addEventListener('pagehide', handleClose);
     return () => pipWindow.removeEventListener('pagehide', handleClose);
@@ -192,6 +198,7 @@ export default function PipTimer() {
       // Use PiP window's own setInterval — it has its own event loop,
       // not throttled by the parent tab being in background
       intervalRef.current = pip.setInterval(update, 500);
+      pipRef.current = pip;
       setPipWindow(pip);
     } catch (err) {
       console.warn('PiP not available:', err);
