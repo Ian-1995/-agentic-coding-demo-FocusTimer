@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { DEFAULT_SETTINGS } from '../../utils/constants';
-import { themes, type Theme } from '../../utils/themes';
+import { themes, type Theme, applyTheme } from '../../utils/themes';
 import { getNotificationPermission, requestNotificationPermission } from '../timer/NotificationManager';
 
 function ThemeCard({ theme, isSelected, onSelect }: { theme: Theme; isSelected: boolean; onSelect: () => void }) {
@@ -107,6 +107,8 @@ function ToggleField({ label, checked, onChange }: { label: string; checked: boo
 export default function SettingsForm() {
   const settings = useSettingsStore();
 
+  const savedThemeRef = useRef(settings.theme);
+
   const [draft, setDraft] = useState({
     work_duration: settings.work_duration,
     short_break_duration: settings.short_break_duration,
@@ -114,6 +116,7 @@ export default function SettingsForm() {
     long_break_interval: settings.long_break_interval,
     sound_enabled: settings.sound_enabled,
     notification_enabled: settings.notification_enabled,
+    theme: settings.theme,
   });
 
   const [saved, setSaved] = useState(false);
@@ -124,6 +127,14 @@ export default function SettingsForm() {
     const refresh = () => setNotifPerm(getNotificationPermission());
     document.addEventListener('visibilitychange', refresh);
     return () => document.removeEventListener('visibilitychange', refresh);
+  }, []);
+
+  // Revert theme preview if user navigates away without saving
+  useEffect(() => {
+    return () => {
+      const store = useSettingsStore.getState();
+      applyTheme(store.theme);
+    };
   }, []);
 
   const handleRequestPermission = useCallback(async () => {
@@ -137,7 +148,8 @@ export default function SettingsForm() {
     draft.long_break_duration !== settings.long_break_duration ||
     draft.long_break_interval !== settings.long_break_interval ||
     draft.sound_enabled !== settings.sound_enabled ||
-    draft.notification_enabled !== settings.notification_enabled;
+    draft.notification_enabled !== settings.notification_enabled ||
+    draft.theme !== savedThemeRef.current;
 
   const handleChange = (key: string, value: number | boolean) => {
     setDraft((prev) => ({ ...prev, [key]: value }));
@@ -145,11 +157,15 @@ export default function SettingsForm() {
   };
 
   const handleThemeSelect = (themeId: string) => {
-    settings.updateSettings({ theme: themeId });
+    // Live preview — apply CSS immediately but don't persist to store yet
+    applyTheme(themeId);
+    setDraft((prev) => ({ ...prev, theme: themeId }));
+    setSaved(false);
   };
 
   const handleSave = () => {
     settings.updateSettings(draft);
+    savedThemeRef.current = draft.theme;
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
@@ -162,9 +178,11 @@ export default function SettingsForm() {
       long_break_interval: DEFAULT_SETTINGS.long_break_interval,
       sound_enabled: DEFAULT_SETTINGS.sound_enabled,
       notification_enabled: DEFAULT_SETTINGS.notification_enabled,
+      theme: DEFAULT_SETTINGS.theme,
     };
     setDraft(defaults);
     settings.resetSettings();
+    savedThemeRef.current = DEFAULT_SETTINGS.theme;
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
@@ -184,7 +202,7 @@ export default function SettingsForm() {
                 <ThemeCard
                   key={theme.id}
                   theme={theme}
-                  isSelected={settings.theme === theme.id}
+                  isSelected={draft.theme === theme.id}
                   onSelect={() => handleThemeSelect(theme.id)}
                 />
               ))}
@@ -197,7 +215,7 @@ export default function SettingsForm() {
                 <ThemeCard
                   key={theme.id}
                   theme={theme}
-                  isSelected={settings.theme === theme.id}
+                  isSelected={draft.theme === theme.id}
                   onSelect={() => handleThemeSelect(theme.id)}
                 />
               ))}

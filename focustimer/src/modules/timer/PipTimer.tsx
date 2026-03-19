@@ -20,42 +20,45 @@ function isPipSupported(): boolean {
 export default function PipTimer() {
   const [pipWindow, setPipWindow] = useState<Window | null>(null);
   const intervalRef = useRef<number | null>(null);
-  // Keep a ref to the pip window so cleanup can use pip.clearInterval
   const pipRef = useRef<Window | null>(null);
+  // Store cleanup functions for subscribe/observer
+  const cleanupRef = useRef<(() => void) | null>(null);
 
-  const clearPipInterval = useCallback(() => {
+  const fullCleanup = useCallback(() => {
     if (intervalRef.current !== null) {
-      // Must use the same window context that created the interval
       const w = pipRef.current && !pipRef.current.closed ? pipRef.current : window;
       w.clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
+    if (cleanupRef.current) {
+      cleanupRef.current();
+      cleanupRef.current = null;
+    }
   }, []);
 
   const closePip = useCallback(() => {
-    clearPipInterval();
+    fullCleanup();
     if (pipWindow && !pipWindow.closed) {
       pipWindow.close();
     }
     setPipWindow(null);
     pipRef.current = null;
-  }, [pipWindow, clearPipInterval]);
+  }, [pipWindow, fullCleanup]);
 
   useEffect(() => {
-    return () => { clearPipInterval(); };
-  }, [clearPipInterval]);
+    return () => { fullCleanup(); };
+  }, [fullCleanup]);
 
   useEffect(() => {
     if (!pipWindow) return;
     const handleClose = () => {
-      // PiP window is closing — intervals auto-cleared by browser
-      intervalRef.current = null;
+      fullCleanup();
       pipRef.current = null;
       setPipWindow(null);
     };
     pipWindow.addEventListener('pagehide', handleClose);
     return () => pipWindow.removeEventListener('pagehide', handleClose);
-  }, [pipWindow]);
+  }, [pipWindow, fullCleanup]);
 
   const openPip = useCallback(async () => {
     if (pipWindow && !pipWindow.closed) {
@@ -109,7 +112,6 @@ export default function PipTimer() {
         useTimerStore.getState().reset();
       });
 
-      let prevThemeId = themeId;
       let prevPhase: TimerPhase = useTimerStore.getState().currentPhase;
       let flashTimeout: number | null = null;
       let lastQuoteTime = Date.now();
@@ -129,6 +131,25 @@ export default function PipTimer() {
         initQuoteEl.textContent = '「' + getQuoteForPhase(prevPhase) + '」';
       }
 
+      /** Rebuild PiP styles with new theme colors */
+      const syncTheme = (newThemeId: string) => {
+        if (pip.closed) return;
+        const newTheme = getThemeById(newThemeId);
+        const oldStyle = doc.getElementById('pip-theme');
+        if (oldStyle) oldStyle.remove();
+        const newStyle = doc.createElement('style');
+        newStyle.id = 'pip-theme';
+        newStyle.textContent = buildPipStyles(newTheme.colors);
+        doc.head.appendChild(newStyle);
+      };
+
+      // Subscribe to settings store for instant theme sync (no polling delay)
+      const unsubSettings = useSettingsStore.subscribe((state, prev) => {
+        if (state.theme !== prev.theme) {
+          syncTheme(state.theme);
+        }
+      });
+
       /** Fade-swap the quote text */
       const rotateQuote = (phase: TimerPhase) => {
         const qEl = doc.getElementById('q');
@@ -141,23 +162,39 @@ export default function PipTimer() {
         lastQuoteTime = Date.now();
       };
 
+      // Also sync when CSS variables change (live preview before save)
+      const observer = new MutationObserver(() => {
+        if (pip.closed) return;
+        // Read current CSS variables from main document and rebuild PiP styles
+        const root = document.documentElement;
+        const readVar = (name: string) => root.style.getPropertyValue(name).trim();
+        const liveColors = {
+          bg: readVar('--color-bg'),
+          surface: readVar('--color-surface'),
+          surfaceHover: readVar('--color-surface-hover'),
+          text: readVar('--color-text'),
+          textMuted: readVar('--color-text-muted'),
+          border: readVar('--color-border'),
+          primary: readVar('--color-primary'),
+          warning: readVar('--color-warning'),
+        };
+        // Only rebuild if we got valid values
+        if (liveColors.bg) {
+          const oldStyle = doc.getElementById('pip-theme');
+          if (oldStyle) oldStyle.remove();
+          const newStyle = doc.createElement('style');
+          newStyle.id = 'pip-theme';
+          newStyle.textContent = buildPipStyles(liveColors);
+          doc.head.appendChild(newStyle);
+        }
+      });
+      observer.observe(document.documentElement, { attributes: true, attributeFilter: ['style'] });
+
       const update = () => {
         if (pip.closed) return;
 
         const state = useTimerStore.getState();
         const settings = useSettingsStore.getState();
-
-        // Sync theme if changed — replace style element to force repaint
-        if (settings.theme !== prevThemeId) {
-          prevThemeId = settings.theme;
-          const newTheme = getThemeById(settings.theme);
-          const oldStyle = doc.getElementById('pip-theme');
-          if (oldStyle) oldStyle.remove();
-          const newStyle = doc.createElement('style');
-          newStyle.id = 'pip-theme';
-          newStyle.textContent = buildPipStyles(newTheme.colors);
-          doc.head.appendChild(newStyle);
-        }
 
         const cEl = doc.getElementById('c');
         const icoEl = doc.getElementById('ico');
@@ -233,6 +270,11 @@ export default function PipTimer() {
       // not throttled by the parent tab being in background
       intervalRef.current = pip.setInterval(update, 500);
       pipRef.current = pip;
+      // Store cleanup for subscribe + observer
+      cleanupRef.current = () => {
+        unsubSettings();
+        observer.disconnect();
+      };
       setPipWindow(pip);
     } catch (err) {
       console.warn('PiP not available:', err);
