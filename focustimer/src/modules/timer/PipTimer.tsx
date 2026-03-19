@@ -4,6 +4,7 @@ import { useSettingsStore } from '../../stores/settingsStore';
 import { formatTime } from '../../utils/time';
 import { PHASE_LABELS, PHASE_COLORS, type TimerPhase } from '../../utils/constants';
 import { getThemeById } from '../../utils/themes';
+import { getQuoteForPhase } from '../../utils/quotes';
 
 const PHASE_ICONS: Record<TimerPhase, string> = {
   idle: '🍅',
@@ -66,7 +67,7 @@ export default function PipTimer() {
       // @ts-expect-error Document PiP API types not yet in TS lib
       const pip: Window = await window.documentPictureInPicture.requestWindow({
         width: 320,
-        height: 100,
+        height: 120,
       });
 
       const doc = pip.document;
@@ -96,6 +97,7 @@ export default function PipTimer() {
           </div>
           <div class="flash-overlay" id="flash"></div>
         </div>
+        <div class="quote" id="q"></div>
       `;
 
       doc.getElementById('tog')!.addEventListener('click', () => {
@@ -119,6 +121,10 @@ export default function PipTimer() {
       }
       if (initIcoEl) {
         initIcoEl.textContent = PHASE_ICONS[prevPhase];
+      }
+      const initQuoteEl = doc.getElementById('q');
+      if (initQuoteEl) {
+        initQuoteEl.textContent = '「' + getQuoteForPhase(prevPhase) + '」';
       }
 
       const update = () => {
@@ -157,6 +163,16 @@ export default function PipTimer() {
 
           // Update icon
           icoEl.textContent = PHASE_ICONS[state.currentPhase];
+
+          // Update quote
+          const qEl = doc.getElementById('q');
+          if (qEl) {
+            qEl.style.opacity = '0';
+            pip.setTimeout(() => {
+              qEl.textContent = '「' + getQuoteForPhase(state.currentPhase) + '」';
+              qEl.style.opacity = '1';
+            }, 300);
+          }
 
           // Update flash overlay color and trigger animation
           flashEl.style.backgroundColor = phaseColor;
@@ -237,10 +253,12 @@ function buildPipStyles(c: { bg: string; surface: string; surfaceHover: string; 
       background: ${c.bg};
       color: ${c.text};
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
+      gap: 2px;
       height: 100vh;
-      padding: 10px 16px;
+      padding: 8px 16px;
       user-select: none;
       overflow: hidden;
     }
@@ -344,5 +362,16 @@ function buildPipStyles(c: { bg: string; surface: string; surfaceHover: string; 
     .toggle.paused { background: ${c.warning}; }
     .rst { background: ${c.surface}; color: ${c.textMuted}; font-size: 11px; }
     .rst:hover { background: ${c.surfaceHover}; }
+    .quote {
+      font-size: 9px;
+      color: ${c.textMuted};
+      font-style: italic;
+      text-align: center;
+      padding: 4px 16px 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      transition: opacity 0.3s ease;
+    }
   `;
 }
